@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>terraform-aws-cloudwatch | Architecture Document</title>
+<style>
+  :root {
+    --ink: #0b0c0b;
+    --accent: #c8420a;
+    --text: #d4d4d4;
+    --text-muted: #888;
+    --surface: #141514;
+    --surface-alt: #1a1b1a;
+    --border: #2a2b2a;
+    --success: #2ea043;
+    --warning: #d29922;
+    --info: #388bfd;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
+    background: var(--ink);
+    color: var(--text);
+    line-height: 1.7;
+    padding: 2rem;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  h1, h2, h3 { color: #fff; font-weight: 600; }
+  h1 { font-size: 2rem; margin-bottom: 0.5rem; border-bottom: 3px solid var(--accent); padding-bottom: 0.75rem; }
+  h2 { font-size: 1.4rem; margin: 2.5rem 0 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 1.1rem; margin: 1.5rem 0 0.75rem; }
+
+  .subtitle { color: var(--accent); font-size: 0.95rem; margin-bottom: 2rem; }
+
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    text-align: center;
+  }
+
+  .card .metric {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  .card .label {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-top: 0.25rem;
+  }
+
+  .exec-summary {
+    background: var(--surface);
+    border-left: 4px solid var(--accent);
+    padding: 1.5rem;
+    border-radius: 0 8px 8px 0;
+    margin: 1.5rem 0;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 0.9rem;
+  }
+
+  th {
+    background: var(--surface);
+    color: var(--accent);
+    text-align: left;
+    padding: 0.75rem 1rem;
+    border-bottom: 2px solid var(--accent);
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 0.65rem 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  tr:hover td { background: var(--surface-alt); }
+
+  .arch-diagram {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 2rem;
+    margin: 1.5rem 0;
+    overflow-x: auto;
+  }
+
+  .flow-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    min-width: 800px;
+  }
+
+  .flow-row {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .flow-box {
+    background: var(--surface-alt);
+    border: 2px solid var(--accent);
+    border-radius: 6px;
+    padding: 0.75rem 1.25rem;
+    text-align: center;
+    font-size: 0.85rem;
+    color: #fff;
+    min-width: 140px;
+    position: relative;
+  }
+
+  .flow-box.primary {
+    background: var(--accent);
+    color: #fff;
+    font-weight: 600;
+    border-color: var(--accent);
+  }
+
+  .flow-box.secondary {
+    border-color: var(--info);
+    background: rgba(56, 139, 253, 0.1);
+  }
+
+  .flow-box.tertiary {
+    border-color: var(--success);
+    background: rgba(46, 160, 67, 0.1);
+  }
+
+  .flow-arrow {
+    color: var(--accent);
+    font-size: 1.5rem;
+    line-height: 1;
+  }
+
+  .checklist {
+    list-style: none;
+    padding: 0;
+  }
+
+  .checklist li {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .checklist li::before {
+    content: '';
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--success);
+    border-radius: 3px;
+    display: inline-block;
+    flex-shrink: 0;
+  }
+
+  .tag {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin: 0.15rem;
+  }
+
+  .tag-healthcare { background: rgba(56, 139, 253, 0.15); color: var(--info); border: 1px solid var(--info); }
+  .tag-finance { background: rgba(210, 153, 34, 0.15); color: var(--warning); border: 1px solid var(--warning); }
+  .tag-government { background: rgba(200, 66, 10, 0.15); color: var(--accent); border: 1px solid var(--accent); }
+  .tag-retail { background: rgba(46, 160, 67, 0.15); color: var(--success); border: 1px solid var(--success); }
+  .tag-saas { background: rgba(163, 113, 247, 0.15); color: #a371f7; border: 1px solid #a371f7; }
+
+  .industry-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+    margin: 1rem 0;
+  }
+
+  .industry-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem;
+  }
+
+  .industry-card h4 {
+    margin-bottom: 0.5rem;
+    color: #fff;
+  }
+
+  .industry-card p {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+
+  code {
+    background: var(--surface);
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    color: var(--accent);
+  }
+
+  pre {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem;
+    overflow-x: auto;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    margin: 1rem 0;
+  }
+
+  .links-section a {
+    color: var(--accent);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.2s;
+  }
+
+  .links-section a:hover {
+    border-bottom-color: var(--accent);
+  }
+
+  footer {
+    margin-top: 4rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border);
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+  }
+
+  .data-flow-step {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 0.75rem 0;
+  }
+
+  .step-num {
+    background: var(--accent);
+    color: #fff;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .security-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    margin: 0.75rem 0;
+  }
+
+  .security-item h4 {
+    color: var(--accent);
+    font-size: 0.95rem;
+    margin-bottom: 0.35rem;
+  }
+
+  .security-item p {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+</style>
+</head>
+<body>
+
+<h1>terraform-aws-cloudwatch</h1>
+<div class="subtitle">Architecture Document &mdash; Comprehensive AWS CloudWatch Observability Module</div>
+
+<!-- Executive Summary -->
+<h2>Executive Summary</h2>
+<div class="exec-summary">
+  <p>Terraform module for comprehensive AWS CloudWatch observability including log groups, metric alarms, composite alarms, dashboards, anomaly detection, Synthetics canaries, Contributor Insights, metric streams, and cross-account observability. The module provides a unified interface to deploy and manage the full CloudWatch observability stack through a single, composable Terraform module with support for OAM sinks and links for centralized multi-account monitoring.</p>
+</div>
+
+<!-- Overview Cards -->
+<h2>Overview</h2>
+<div class="card-grid">
+  <div class="card">
+    <div class="metric">10</div>
+    <div class="label">Resources</div>
+  </div>
+  <div class="card">
+    <div class="metric">20</div>
+    <div class="label">Variables</div>
+  </div>
+  <div class="card">
+    <div class="metric">15</div>
+    <div class="label">Outputs</div>
+  </div>
+  <div class="card">
+    <div class="metric">8</div>
+    <div class="label">Feature Groups</div>
+  </div>
+</div>
+
+<!-- Architecture Diagram -->
+<h2>Architecture Diagram</h2>
+<div class="arch-diagram">
+  <div class="flow-container">
+    <div class="flow-row">
+      <div class="flow-box primary">CloudWatch Module</div>
+    </div>
+    <div class="flow-arrow">|</div>
+    <div class="flow-row">
+      <div class="flow-box">Log Groups<br><small>Retention + KMS</small></div>
+      <div class="flow-box">Metric Alarms<br><small>Standard + Math</small></div>
+      <div class="flow-box">Composite Alarms<br><small>Logical combinations</small></div>
+      <div class="flow-box">Dashboards<br><small>JSON-defined</small></div>
+    </div>
+    <div class="flow-arrow">|</div>
+    <div class="flow-row">
+      <div class="flow-box secondary">Anomaly Detection<br><small>Band detection</small></div>
+      <div class="flow-box secondary">Synthetics Canaries<br><small>Endpoint monitoring</small></div>
+      <div class="flow-box secondary">Contributor Insights<br><small>Top-N analysis</small></div>
+      <div class="flow-box secondary">Metric Streams<br><small>Real-time export</small></div>
+    </div>
+    <div class="flow-arrow">|</div>
+    <div class="flow-row">
+      <div class="flow-box tertiary">OAM Sink<br><small>Monitoring account</small></div>
+      <div class="flow-box tertiary">OAM Link<br><small>Source account</small></div>
+      <div class="flow-box tertiary">SNS Actions<br><small>Notifications</small></div>
+      <div class="flow-box tertiary">Kinesis Firehose<br><small>Stream destination</small></div>
+    </div>
+  </div>
+</div>
+
+<!-- Component Breakdown -->
+<h2>Component Breakdown</h2>
+<table>
+  <thead>
+    <tr><th>Resource</th><th>Type</th><th>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>aws_cloudwatch_log_group.this</code></td><td>resource</td><td>Managed log groups with retention policies and KMS encryption</td></tr>
+    <tr><td><code>aws_cloudwatch_metric_alarm.this</code></td><td>resource</td><td>Standard and math-expression based metric alarms</td></tr>
+    <tr><td><code>aws_cloudwatch_composite_alarm.this</code></td><td>resource</td><td>Logical combinations of metric alarms</td></tr>
+    <tr><td><code>aws_cloudwatch_dashboard.this</code></td><td>resource</td><td>JSON-defined CloudWatch dashboards</td></tr>
+    <tr><td><code>aws_cloudwatch_metric_alarm.anomaly</code></td><td>resource</td><td>Anomaly detection band alarms</td></tr>
+    <tr><td><code>aws_synthetics_canary.this</code></td><td>resource</td><td>Automated endpoint monitoring canaries</td></tr>
+    <tr><td><code>aws_cloudwatch_contributor_insights_rule.this</code></td><td>resource</td><td>Top-N Contributor Insights rules</td></tr>
+    <tr><td><code>aws_cloudwatch_metric_stream.this</code></td><td>resource</td><td>Real-time metric streaming to Firehose</td></tr>
+    <tr><td><code>aws_oam_sink.this</code></td><td>resource</td><td>Cross-account monitoring sink</td></tr>
+    <tr><td><code>aws_oam_link.this</code></td><td>resource</td><td>Cross-account source link</td></tr>
+  </tbody>
+</table>
+
+<!-- Data Flow -->
+<h2>Data Flow</h2>
+<div class="data-flow-step"><div class="step-num">1</div><div>Application metrics and logs flow into CloudWatch Log Groups with configurable retention and KMS encryption.</div></div>
+<div class="data-flow-step"><div class="step-num">2</div><div>Metric Alarms evaluate metrics against thresholds (standard) or math expressions, triggering SNS notifications.</div></div>
+<div class="data-flow-step"><div class="step-num">3</div><div>Composite Alarms combine multiple metric alarms with logical AND/OR/NOT operators for complex alerting.</div></div>
+<div class="data-flow-step"><div class="step-num">4</div><div>Anomaly Detection learns metric patterns and creates anomaly band alarms for drift detection.</div></div>
+<div class="data-flow-step"><div class="step-num">5</div><div>Synthetics Canaries continuously probe endpoints and store artifacts in S3, alerting on failures.</div></div>
+<div class="data-flow-step"><div class="step-num">6</div><div>Metric Streams export real-time metrics via Kinesis Firehose to external monitoring systems (Datadog, Splunk, etc.).</div></div>
+<div class="data-flow-step"><div class="step-num">7</div><div>OAM Sinks and Links enable cross-account observability by sharing metrics, logs, and traces between AWS accounts.</div></div>
+
+<!-- Security Controls -->
+<h2>Security Controls</h2>
+<div class="security-item">
+  <h4>KMS Encryption for Log Groups</h4>
+  <p>Log groups support customer-managed KMS key encryption via <code>kms_key_id</code> for data at rest protection.</p>
+</div>
+<div class="security-item">
+  <h4>OAM Sink Access Policy</h4>
+  <p>Cross-account sink policies restrict access to specified source accounts or organization IDs using IAM condition keys.</p>
+</div>
+<div class="security-item">
+  <h4>Canary VPC Isolation</h4>
+  <p>Synthetics canaries support VPC configuration with private subnets and security groups for isolated endpoint testing.</p>
+</div>
+<div class="security-item">
+  <h4>IAM Role Scoping</h4>
+  <p>Metric streams and canaries require explicit IAM role ARNs, enforcing least-privilege access patterns.</p>
+</div>
+
+<!-- Industry Adaptation -->
+<h2>Industry Adaptation</h2>
+<div class="industry-grid">
+  <div class="industry-card">
+    <h4><span class="tag tag-healthcare">Healthcare</span></h4>
+    <p>HIPAA-compliant log retention with KMS encryption. Anomaly detection on patient system availability. Synthetics canaries for EHR endpoint health.</p>
+  </div>
+  <div class="industry-card">
+    <h4><span class="tag tag-finance">Finance</span></h4>
+    <p>Real-time metric streaming to SIEM. Composite alarms for multi-signal fraud detection. Cross-account observability across trading and settlement accounts.</p>
+  </div>
+  <div class="industry-card">
+    <h4><span class="tag tag-government">Government</span></h4>
+    <p>FedRAMP-aligned log group encryption with GovCloud KMS keys. Contributor Insights for access pattern auditing. OAM for centralized agency monitoring.</p>
+  </div>
+  <div class="industry-card">
+    <h4><span class="tag tag-retail">Retail</span></h4>
+    <p>Synthetics canaries for checkout flow monitoring. Anomaly detection on order processing metrics. Dashboard visualization for seasonal traffic patterns.</p>
+  </div>
+  <div class="industry-card">
+    <h4><span class="tag tag-saas">SaaS</span></h4>
+    <p>Multi-tenant metric streams to observability platforms. Per-customer composite alarms for SLA monitoring. Cross-account OAM for shared infrastructure visibility.</p>
+  </div>
+</div>
+
+<!-- Production Readiness Checklist -->
+<h2>Production Readiness Checklist</h2>
+<ul class="checklist">
+  <li>Enable KMS encryption on all log groups storing sensitive data</li>
+  <li>Set appropriate log retention periods (30-365 days based on compliance needs)</li>
+  <li>Configure alarm actions to SNS topics with appropriate subscription protocols</li>
+  <li>Set up composite alarms to reduce alert fatigue from correlated metric alarms</li>
+  <li>Deploy Synthetics canaries for critical API and UI endpoint monitoring</li>
+  <li>Enable anomaly detection for baseline metrics that may drift unpredictably</li>
+  <li>Configure metric streams for external observability platform integration</li>
+  <li>Set up cross-account OAM for centralized multi-account monitoring</li>
+  <li>Apply consistent tags across all resources for cost allocation and governance</li>
+  <li>Review and restrict OAM sink policies to specific source accounts</li>
+</ul>
+
+<!-- Configuration Reference -->
+<h2>Configuration Reference</h2>
+<table>
+  <thead>
+    <tr><th>Variable</th><th>Type</th><th>Default</th><th>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>name</code></td><td>string</td><td><code>""</code></td><td>Name prefix for all resources</td></tr>
+    <tr><td><code>tags</code></td><td>map(string)</td><td><code>{}</code></td><td>Tags to apply to all resources</td></tr>
+    <tr><td><code>log_groups</code></td><td>map(object)</td><td><code>{}</code></td><td>Map of CloudWatch Log Groups to create</td></tr>
+    <tr><td><code>metric_alarms</code></td><td>map(object)</td><td><code>{}</code></td><td>Map of CloudWatch metric alarms to create</td></tr>
+    <tr><td><code>composite_alarms</code></td><td>map(object)</td><td><code>{}</code></td><td>Map of composite alarms to create</td></tr>
+    <tr><td><code>dashboards</code></td><td>map(object)</td><td><code>{}</code></td><td>Map of CloudWatch dashboards to create</td></tr>
+    <tr><td><code>anomaly_detectors</code></td><td>map(object)</td><td><code>{}</code></td><td>Map of anomaly detectors to create</td></tr>
+    <tr><td><code>canaries</code></td><td>map(object)</td><td><code>{}</code></td><td>Map of Synthetics canaries to create</td></tr>
+    <tr><td><code>contributor_insights_rules</code></td><td>map(object)</td><td><code>{}</code></td><td>Map of Contributor Insights rules</td></tr>
+    <tr><td><code>metric_streams</code></td><td>map(object)</td><td><code>{}</code></td><td>Map of Metric Streams to create</td></tr>
+    <tr><td><code>create_monitoring_account_sink</code></td><td>bool</td><td><code>false</code></td><td>Create an OAM sink (monitoring account)</td></tr>
+    <tr><td><code>create_source_account_link</code></td><td>bool</td><td><code>false</code></td><td>Create an OAM link (source account)</td></tr>
+    <tr><td><code>oam_sink_name</code></td><td>string</td><td><code>""</code></td><td>Name of the OAM sink</td></tr>
+    <tr><td><code>oam_sink_allowed_source_accounts</code></td><td>list(string)</td><td><code>[]</code></td><td>Source account IDs allowed to link</td></tr>
+    <tr><td><code>oam_link_sink_arn</code></td><td>string</td><td><code>""</code></td><td>ARN of the monitoring account sink</td></tr>
+    <tr><td><code>oam_link_resource_types</code></td><td>list(string)</td><td><code>[Metric, LogGroup, Trace]</code></td><td>Resource types to share</td></tr>
+  </tbody>
+</table>
+
+<!-- Deployment -->
+<h2>Deployment</h2>
+<pre>
+# Clone the repository
+git clone https://github.com/kogunlowo123/terraform-aws-cloudwatch.git
+cd terraform-aws-cloudwatch
+
+# Initialize Terraform
+terraform init
+
+# Review the execution plan
+terraform plan
+
+# Apply the configuration
+terraform apply
+
+# To destroy all resources
+terraform destroy
+</pre>
+
+<!-- Links -->
+<h2>Links</h2>
+<div class="links-section">
+  <p><a href="https://github.com/kogunlowo123/terraform-aws-cloudwatch">GitHub Repository</a></p>
+  <p><a href="https://github.com/kogunlowo123/terraform-aws-cloudwatch/blob/main/README.md">README.md</a></p>
+  <p><a href="https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/">AWS CloudWatch Documentation</a></p>
+</div>
+
+<!-- Footer -->
+<footer>
+  <p>Generated on 2026-03-15 &mdash; terraform-aws-cloudwatch Architecture Document</p>
+  <p>Terraform >= 1.5.0 &bull; AWS Provider >= 5.0</p>
+</footer>
+
+</body>
+</html>
