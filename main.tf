@@ -11,7 +11,7 @@ resource "aws_cloudwatch_log_group" "this" {
   log_group_class   = each.value.log_group_class
   skip_destroy      = each.value.skip_destroy
 
-  tags = merge(local.common_tags, each.value.tags)
+  tags = merge(var.tags, each.value.tags)
 }
 
 ################################################################################
@@ -65,7 +65,7 @@ resource "aws_cloudwatch_metric_alarm" "this" {
     }
   }
 
-  tags = merge(local.common_tags, each.value.tags)
+  tags = merge(var.tags, each.value.tags)
 }
 
 ################################################################################
@@ -86,7 +86,7 @@ resource "aws_cloudwatch_composite_alarm" "this" {
   actions_suppressor_extension_period = each.value.actions_suppressor_extension_period
   actions_suppressor_wait_period      = each.value.actions_suppressor_wait_period
 
-  tags = merge(local.common_tags, each.value.tags)
+  tags = merge(var.tags, each.value.tags)
 
   depends_on = [aws_cloudwatch_metric_alarm.this]
 }
@@ -135,7 +135,7 @@ resource "aws_cloudwatch_metric_alarm" "anomaly" {
     }
   }
 
-  tags = local.common_tags
+  tags = var.tags
 }
 
 ################################################################################
@@ -166,8 +166,8 @@ resource "aws_synthetics_canary" "this" {
   }
 
   run_config {
-    timeout_in_seconds = each.value.timeout_in_seconds
-    memory_in_mb       = each.value.memory_in_mb
+    timeout_in_seconds    = each.value.timeout_in_seconds
+    memory_in_mb          = each.value.memory_in_mb
     environment_variables = each.value.environment_variables
   }
 
@@ -180,7 +180,7 @@ resource "aws_synthetics_canary" "this" {
     }
   }
 
-  tags = merge(local.common_tags, each.value.tags)
+  tags = merge(var.tags, each.value.tags)
 }
 
 ################################################################################
@@ -244,7 +244,7 @@ resource "aws_cloudwatch_metric_stream" "this" {
     }
   }
 
-  tags = merge(local.common_tags, each.value.tags)
+  tags = merge(var.tags, each.value.tags)
 }
 
 ################################################################################
@@ -254,9 +254,9 @@ resource "aws_cloudwatch_metric_stream" "this" {
 resource "aws_oam_sink" "this" {
   count = var.create_monitoring_account_sink ? 1 : 0
 
-  name = local.oam_sink_name
+  name = var.oam_sink_name != "" ? var.oam_sink_name : "${var.name}-monitoring-sink"
 
-  tags = local.common_tags
+  tags = var.tags
 }
 
 resource "aws_oam_sink_policy" "this" {
@@ -297,5 +297,5 @@ resource "aws_oam_link" "this" {
   resource_types  = var.oam_link_resource_types
   sink_identifier = var.oam_link_sink_arn
 
-  tags = local.common_tags
+  tags = var.tags
 }
