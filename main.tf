@@ -82,9 +82,15 @@ resource "aws_cloudwatch_composite_alarm" "this" {
   ok_actions                = each.value.ok_actions
   insufficient_data_actions = each.value.insufficient_data_actions
 
-  actions_suppressor                  = each.value.actions_suppressor
-  actions_suppressor_extension_period = each.value.actions_suppressor_extension_period
-  actions_suppressor_wait_period      = each.value.actions_suppressor_wait_period
+  dynamic "actions_suppressor" {
+    for_each = each.value.actions_suppressor != null ? [each.value.actions_suppressor] : []
+
+    content {
+      alarm            = actions_suppressor.value
+      extension_period = each.value.actions_suppressor_extension_period
+      wait_period      = each.value.actions_suppressor_wait_period
+    }
+  }
 
   tags = merge(var.tags, each.value.tags)
 
@@ -187,7 +193,7 @@ resource "aws_synthetics_canary" "this" {
 # Contributor Insights Rules
 ################################################################################
 
-resource "aws_cloudwatch_contributor_insights_rule" "this" {
+resource "aws_cloudwatch_contributor_insight_rule" "this" {
   for_each = var.contributor_insights_rules
 
   rule_name       = each.key
@@ -269,7 +275,7 @@ resource "aws_oam_sink_policy" "this" {
     Statement = [
       {
         Effect    = "Allow"
-        Principal = length(var.oam_sink_allowed_source_accounts) > 0 ? { AWS = var.oam_sink_allowed_source_accounts } : "*"
+        Principal = length(var.oam_sink_allowed_source_accounts) > 0 ? { AWS = var.oam_sink_allowed_source_accounts } : { AWS = ["*"] }
         Action    = ["oam:CreateLink", "oam:UpdateLink"]
         Resource  = "*"
         Condition = length(var.oam_sink_allowed_source_organizations) > 0 ? {

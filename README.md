@@ -126,7 +126,7 @@ module "cloudwatch" {
 | Name      | Version  |
 |-----------|----------|
 | terraform | >= 1.5.0 |
-| aws       | >= 5.0   |
+| aws       | >= 6.53.0 |
 
 ## License
 
