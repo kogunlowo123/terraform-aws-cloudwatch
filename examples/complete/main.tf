@@ -189,7 +189,7 @@ module "cloudwatch" {
         LogGroupNames = ["/app/backend"]
         LogFormat     = "JSON"
         Contribution = {
-          Keys  = ["$.sourceIp"]
+          Keys    = ["$.sourceIp"]
           Filters = []
         }
         AggregateOn = "Count"
@@ -213,10 +213,10 @@ module "cloudwatch" {
   }
 
   # Cross-Account Observability (Monitoring account)
-  create_monitoring_account_sink       = true
-  oam_sink_name                        = "central-monitoring"
-  oam_sink_allowed_source_accounts     = ["111111111111", "222222222222"]
-  oam_sink_resource_types              = ["AWS::CloudWatch::Metric", "AWS::Logs::LogGroup", "AWS::XRay::Trace"]
+  create_monitoring_account_sink   = true
+  oam_sink_name                    = "central-monitoring"
+  oam_sink_allowed_source_accounts = ["111111111111", "222222222222"]
+  oam_sink_resource_types          = ["AWS::CloudWatch::Metric", "AWS::Logs::LogGroup", "AWS::XRay::Trace"]
 
   tags = {
     Environment = "production"

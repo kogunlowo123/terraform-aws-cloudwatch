@@ -75,11 +75,11 @@ resource "aws_cloudwatch_metric_alarm" "this" {
 resource "aws_cloudwatch_composite_alarm" "this" {
   for_each = var.composite_alarms
 
-  alarm_name          = each.key
-  alarm_rule          = each.value.alarm_rule
-  alarm_description   = each.value.alarm_description
-  alarm_actions       = each.value.alarm_actions
-  ok_actions          = each.value.ok_actions
+  alarm_name                = each.key
+  alarm_rule                = each.value.alarm_rule
+  alarm_description         = each.value.alarm_description
+  alarm_actions             = each.value.alarm_actions
+  ok_actions                = each.value.ok_actions
   insufficient_data_actions = each.value.insufficient_data_actions
 
   actions_suppressor                  = each.value.actions_suppressor
@@ -276,7 +276,7 @@ resource "aws_oam_sink_policy" "this" {
           "ForAnyValue:StringEquals" = {
             "aws:PrincipalOrgID" = var.oam_sink_allowed_source_organizations
           }
-        } : {
+          } : {
           "ForAllValues:StringEquals" = {
             "oam:ResourceTypes" = var.oam_sink_resource_types
           }
